@@ -598,8 +598,10 @@
     vp: $("#hv-viewport"),
     track: $("#hv-track"),
     tip: $("#hv-tip"),
-    zoom: 1,
-    padL: 150, padR: 150,
+    z: 1,          // current (visible) zoom
+    Lz: 1,         // zoom the labels were last laid out for
+    ox: 150,       // screen position (px from the viewport's left) of the earliest year
+    pad: 150,      // empty space kept at each end of the line
     rowH: 46,
     dragged: false
   };
@@ -608,7 +610,7 @@
   const Y0 = Math.floor((minY - 60) / 50) * 50;
   const Y1 = Math.ceil((maxY + 40) / 10) * 10;
   const SPAN = Y1 - Y0;
-  const MAX_ZOOM = 140;
+  const MAX_PX_PER_YEAR = 30;   // most zoomed in: about 30 pixels for each year
   const firstItem = items.reduce((a, b) => (b.year < a.year ? b : a));
   const lastItem = items.reduce((a, b) => (b.year > a.year ? b : a));
 
@@ -625,13 +627,22 @@
     else n = n.replace(/\s*\([^)]*\)\s*$/, "");
     return n.length > 30 ? n.slice(0, 28).trimEnd() + "…" : n;
   }
-  const baseW = () => Math.max(320, hv.vp.clientWidth - hv.padL - hv.padR);
-  const pxPerYear = () => (baseW() * hv.zoom) / SPAN;
-  const xOf = (y) => hv.padL + (y - Y0) * pxPerYear();
-  const yearAtClient = (clientX) => {
-    const r = hv.vp.getBoundingClientRect();
-    return Y0 + (hv.vp.scrollLeft + clientX - r.left - hv.padL) / pxPerYear();
-  };
+
+  // ---- geometry ----
+  const vpW = () => (hv.track && hv.track.classList.contains("gesturing") && hv.W) || hv.vp.clientWidth || 320;
+  const padFor = (w) => (w < 640 ? 56 : 150);
+  const baseW = () => Math.max(200, vpW() - 2 * hv.pad);
+  const ppyAt = (z) => (baseW() * z) / SPAN;
+  const maxZoom = () => Math.max(2, (MAX_PX_PER_YEAR * SPAN) / baseW());
+  const clampZ = (z) => Math.max(1, Math.min(maxZoom(), z));
+  function clampOx(z, ox) {
+    const len = SPAN * ppyAt(z), W = vpW();
+    const lo = W - hv.pad - len, hi = hv.pad;
+    return lo > hi ? (W - len) / 2 : Math.max(lo, Math.min(hi, ox));
+  }
+  const yearAtX = (sx) => Y0 + (sx - hv.ox) / ppyAt(hv.z);      // sx: px from the viewport's left
+  let vpLeft = null;   // cached during a gesture, so finger moves never force a layout
+  const localX = (clientX) => clientX - (vpLeft != null ? vpLeft : hv.vp.getBoundingClientRect().left);
 
   function ordinalCentury(b) {
     // span [b, b+100)
@@ -639,14 +650,20 @@
     return { n: ordinal(-b / 100), bc: true };
   }
 
+  // Full redraw: positions, label stacking. Runs only when a gesture ends,
+  // or when filters, search or study paths change.
   function hRender() {
     if (view !== "h") return;
-    const vp = hv.vp;
-    const H = vp.clientHeight;
+    hv.pad = padFor(vpW());
+    hv.z = clampZ(hv.z);
+    const H = hv.vp.clientHeight;
     const axisY = Math.round(H / 2) + 10;
-    const ppy = pxPerYear();
-    const trackW = Math.round(hv.padL + SPAN * ppy + hv.padR);
-    const rowsPerSide = Math.max(1, Math.floor((H / 2 - 54) / hv.rowH));
+    const ppy = ppyAt(hv.z);
+    const X = (y) => (y - Y0) * ppy;           // position inside the track
+    const len = SPAN * ppy;
+    // Fewer label rows when zoomed far out, so labels do not pile up.
+    const rowsFit = Math.max(1, Math.floor((H / 2 - 54) / hv.rowH));
+    const rowsPerSide = Math.min(rowsFit, 3 + Math.round(Math.log2(hv.z)));
     const q = state.q;
     const steps = new Map();
     if (path) path.p.steps.forEach((s, i) => { if (s.entry) steps.set(s.entry, (steps.get(s.entry) || []).concat(i + 1)); });
@@ -656,7 +673,7 @@
     ERAS.forEach((er, i) => {
       const a = Math.max(Y0, er.from), b = Math.min(Y1, er.to + 1);
       if (b <= a) return;
-      const x = xOf(a), w = xOf(b) - x;
+      const x = X(a), w = X(b) - x;
       const full = er.name, short = er.short || er.name;
       // wide bands get a normal label; narrow ones get the short name written vertically
       const label = w > full.length * 7.2 + 24 ? full : w > short.length * 7.2 + 20 ? short : "";
@@ -665,27 +682,27 @@
           : w >= 16 ? `<span class="hv-era-label vertical"><b>${esc(short)}</b></span>` : "") + `</div>`;
     });
     // axis line and end caps
-    html += `<div class="hv-axis" style="top:${axisY}px;left:${hv.padL - 40}px;width:${trackW - hv.padL - hv.padR + 80}px"></div>`;
-    html += `<div class="hv-end first" style="top:${axisY}px;left:${hv.padL - 40}px"><span>Earliest<br><b>${esc(shortDate(firstItem))}</b></span></div>`;
-    html += `<div class="hv-end last" style="top:${axisY}px;left:${trackW - hv.padR + 40}px"><span>Latest<br><b>${esc(fmtYear(lastItem.year).replace("AD ", ""))}</b></span></div>`;
+    html += `<div class="hv-axis" style="top:${axisY}px;left:-40px;width:${len + 80}px"></div>`;
+    html += `<div class="hv-end first" style="top:${axisY}px;left:-40px"><span>Earliest<br><b>${esc(shortDate(firstItem))}</b></span></div>`;
+    html += `<div class="hv-end last" style="top:${axisY}px;left:${len + 40}px"><span>Latest<br><b>${esc(fmtYear(lastItem.year).replace("AD ", ""))}</b></span></div>`;
 
     // century ticks
     const ppc = ppy * 100;
     const every = ppc >= 80 ? 1 : ppc >= 40 ? 2 : ppc >= 16 ? 5 : 10;
     for (let b = Math.ceil(Y0 / 100) * 100; b < Y1; b += 100) {
-      const x = xOf(b);
+      const x = X(b);
       html += `<div class="hv-tick" style="left:${x}px;top:${axisY - 5}px"></div>`;
       const idx = Math.round(b / 100);
       if (((idx % every) + every) % every !== 0) continue;
       const c = ordinalCentury(b);
       const text = ppc * every >= 120 ? `${c.n} century${c.bc ? " BC" : ""}` : `${c.n}${c.bc ? " BC" : ""}`;
       const lx = every === 1 ? x + ppc / 2 : x;
-      const capL = hv.padL - 40, capR = trackW - hv.padR + 40;
-      if (Math.abs(lx - capL) < 80 || Math.abs(lx - capR) < 80) continue; // keep clear of the end labels
+      if (Math.abs(lx + 40) < 70 || Math.abs(lx - len - 40) < 70) continue; // keep clear of the end labels
       html += `<div class="hv-cent" style="left:${lx}px;top:${axisY + 10}px">${esc(text)}</div>`;
     }
 
-    // markers: decide which get labels (stacked rows above and below)
+    // markers: decide which get labels (stacked rows above and below);
+    // the most important ones are placed first, so the least important are hidden when crowded
     const rank = (e) => (steps.has(e.id) ? 0 : q && matches(e) ? 1 : 2) * 10 +
       ({ council: 0, synod: 1, event: 2, father: 3, bible: 4 })[e.type];
     const order = items.slice().sort((a, b) => rank(a) - rank(b) || a.year - b.year);
@@ -695,7 +712,7 @@
     const placed = new Map();
     order.forEach((e) => {
       if (!matches(e) && !steps.has(e.id)) return; // filtered out or not a search hit: dot only
-      const x = xOf(e.year);
+      const x = X(e.year);
       const nm = shortName(e), dt = shortDate(e);
       const w = Math.min(200, Math.max(nm.length * 6.9, dt.length * 6) + 44);
       const a = x - 14, b = a + w + 8;
@@ -705,7 +722,7 @@
     });
 
     items.forEach((e) => {
-      const x = xOf(e.year);
+      const x = X(e.year);
       const inFilter = matches(e);
       const st = steps.get(e.id);
       let cls = `hv-m t-${e.type}`;
@@ -723,15 +740,190 @@
       html += `<button type="button" class="hv-label ${cls}" data-type="${e.type}" data-open="${e.id}" data-hv="${e.id}" style="left:${x - 14}px;top:${top}px;max-width:${pl.w}px">${pill}<span class="badge">${icon(e.type === "council" ? "council" : e.type)}</span><span class="hv-txt"><b>${esc(pl.nm)}</b><small>${esc(pl.dt)}</small></span></button>`;
     });
 
-    hv.track.style.width = trackW + "px";
+    hv.track.style.width = Math.ceil(len) + "px";
     hv.track.style.height = H + "px";
     hv.track.innerHTML = html;
+    hv.Lz = hv.z;
+    hv.ox = clampOx(hv.z, hv.ox);
+    // remember what was drawn, so the canvas can redraw it quickly while zooming
+    hv.model = {
+      axisY, H,
+      items: items.map((e) => {
+        const pl = placed.get(e.id), st = steps.get(e.id), inFilter = matches(e);
+        return {
+          id: e.id, year: e.year, type: e.type, pl, steps: st,
+          dim: path ? !st : !inFilter, hit: !!(q && inFilter),
+          top: pl ? (pl.slot.side < 0 ? axisY - 30 - pl.slot.r * hv.rowH - 36 : axisY + 34 + pl.slot.r * hv.rowH) : 0
+        };
+      }).sort((a, b) => (a.pl ? 1 : 0) - (b.pl ? 1 : 0))   // labels drawn on top of bare dots
+    };
+    canvasOff();
+    paint();
     hMarkCurrent();
-    $("#hv-zoom-label").textContent = hv.zoom <= 1.01 ? "Whole history" : `Zoom ×${hv.zoom < 10 ? hv.zoom.toFixed(1) : Math.round(hv.zoom)}`;
-    $("#hv-out").disabled = hv.zoom <= 1.01;
-    $("#hv-in").disabled = hv.zoom >= MAX_ZOOM - 0.01;
     const labeled = placed.size;
     $("#hv-hint").textContent = labeled < items.length ? `${items.length - labeled} more markers show labels as you zoom in` : "All entries labeled";
+  }
+
+  // ---- painting during gestures ----
+  // Swiping only moves the already-drawn timeline (a GPU transform: fast and sharp).
+  // Zooming stretches the era bands and the line with the same transform, and
+  // a single canvas redraws markers and labels at their real size each frame,
+  // so text never looks squashed. The real, clickable labels are re-stacked
+  // once the gesture ends.
+  let paintRaf = 0;
+  function applyTransform() {
+    if (!paintRaf) paintRaf = requestAnimationFrame(paint);
+  }
+  function paint() {
+    cancelAnimationFrame(paintRaf); paintRaf = 0;
+    const s = hv.z / hv.Lz;
+    hv.track.style.transform = `translate3d(${hv.ox}px,0,0) scaleX(${s})`;
+    if (Math.abs(s - 1) > 1e-4 && !hv.canvasOn) canvasOn();
+    if (hv.canvasOn) drawCanvas();
+    const zl = hv.z <= 1.01 ? "Whole history" : `Zoom ×${hv.z < 10 ? hv.z.toFixed(1) : Math.round(hv.z)}`;
+    const lab = $("#hv-zoom-label");
+    if (lab.textContent !== zl) lab.textContent = zl;
+    $("#hv-out").disabled = hv.z <= 1.01;
+    $("#hv-in").disabled = hv.z >= maxZoom() - 0.01;
+  }
+
+  const cv = document.createElement("canvas");
+  cv.className = "hv-canvas";
+  cv.setAttribute("aria-hidden", "true");
+  hv.vp.appendChild(cv);
+  const ctx2 = cv.getContext("2d");
+  let colors = null;
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    const v = (n) => cs.getPropertyValue(n).trim();
+    colors = { surface: v("--surface"), ink: v("--ink"), soft: v("--ink-soft"), gold: v("--gold"), line: v("--line"),
+      bible: v("--c-bible"), father: v("--c-father"), council: v("--c-council"), synod: v("--c-synod"), event: v("--c-event") };
+  }
+  function canvasOn() {
+    hv.canvasOn = true;
+    readColors();
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const W = vpW(), H = hv.vp.clientHeight;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    }
+    hv.dpr = dpr;
+    hv.track.classList.add("zooming");
+    cv.style.display = "block";
+  }
+  function canvasOff() {
+    hv.canvasOn = false;
+    hv.track.classList.remove("zooming");
+    cv.style.display = "none";
+  }
+  const FONT_NAME = '600 13.4px "EB Garamond", Georgia, serif';
+  const FONT_DATE = '11.5px "EB Garamond", Georgia, serif';
+  const FONT_SMALL = '11.8px "EB Garamond", Georgia, serif';
+  const FONT_ERA = '600 11.8px "Cinzel", Georgia, serif';
+  function fit(text, max) {
+    if (ctx2.measureText(text).width <= max) return text;
+    let t = text;
+    while (t.length > 1 && ctx2.measureText(t + "…").width > max) t = t.slice(0, -1);
+    return t.trimEnd() + "…";
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx2.beginPath();
+    ctx2.moveTo(x + r, y); ctx2.arcTo(x + w, y, x + w, y + h, r); ctx2.arcTo(x + w, y + h, x, y + h, r);
+    ctx2.arcTo(x, y + h, x, y, r); ctx2.arcTo(x, y, x + w, y, r); ctx2.closePath();
+  }
+  function drawCanvas() {
+    const m = hv.model; if (!m) return;
+    const c = ctx2, C = colors, W = vpW(), H = m.H, ay = m.axisY;
+    const ppy = ppyAt(hv.z), ox = hv.ox, len = SPAN * ppy;
+    const sx = (y) => ox + (y - Y0) * ppy;
+    c.setTransform(hv.dpr, 0, 0, hv.dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    c.textBaseline = "alphabetic";
+
+    // era names
+    ERAS.forEach((er) => {
+      const a = Math.max(Y0, er.from), b = Math.min(Y1, er.to + 1);
+      if (b <= a) return;
+      const x = sx(a), w = sx(b) - x;
+      if (x > W || x + w < 0) return;
+      c.font = FONT_ERA; c.fillStyle = C.ink;
+      const full = er.name.toUpperCase(), short = (er.short || er.name).toUpperCase();
+      const fw = c.measureText(full).width, swd = c.measureText(short).width;
+      if (w > fw + 24) c.fillText(full, x + 8, 21);
+      else if (w > swd + 20) c.fillText(short, x + 8, 21);
+      else if (w >= 16) { c.save(); c.translate(x + w / 2 - 5, 10); c.rotate(Math.PI / 2); c.fillText(short, 0, 0); c.restore(); }
+    });
+
+    // century ticks and names
+    const ppc = ppy * 100;
+    const every = ppc >= 80 ? 1 : ppc >= 40 ? 2 : ppc >= 16 ? 5 : 10;
+    c.font = FONT_SMALL; c.textAlign = "center";
+    for (let bnd = Math.ceil(Y0 / 100) * 100; bnd < Y1; bnd += 100) {
+      const x = sx(bnd);
+      if (x < -200 || x > W + 200) continue;
+      c.globalAlpha = 0.55; c.fillStyle = C.soft; c.fillRect(Math.round(x), ay - 5, 1, 10); c.globalAlpha = 1;
+      const idx = Math.round(bnd / 100);
+      if (((idx % every) + every) % every !== 0) continue;
+      const cc = ordinalCentury(bnd);
+      const text = ppc * every >= 120 ? `${cc.n} century${cc.bc ? " BC" : ""}` : `${cc.n}${cc.bc ? " BC" : ""}`;
+      const lx = every === 1 ? x + ppc / 2 : x;
+      if (Math.abs(lx - (ox - 40)) < 70 || Math.abs(lx - (ox + len + 40)) < 70) continue;
+      c.fillStyle = C.soft; c.fillText(text, lx, ay + 22);
+    }
+    c.textAlign = "left";
+
+    // end caps
+    [[ox - 40, "EARLIEST", shortDate(firstItem), "left"], [ox + len + 40, "LATEST", fmtYear(lastItem.year).replace("AD ", ""), "right"]].forEach(([x, k, d, al]) => {
+      if (x < -150 || x > W + 150) return;
+      c.fillStyle = C.gold; c.beginPath(); c.arc(x, ay, 6, 0, 7); c.fill();
+      c.textAlign = al; const tx = al === "left" ? x - 14 : x + 14;
+      c.font = FONT_DATE; c.fillStyle = C.soft; c.fillText(k, tx, ay + 25);
+      c.font = FONT_NAME; c.fillStyle = C.ink; c.fillText(d, tx, ay + 41);
+      c.textAlign = "left";
+    });
+
+    // markers and labels
+    for (const it of m.items) {
+      const x = sx(it.year);
+      if (x < -230 || x > W + 30) continue;
+      const col = C[it.type];
+      c.globalAlpha = it.dim ? 0.22 : 1;
+      if (it.pl) {
+        const top = it.top, lw = it.pl.w;
+        const stemTop = it.pl.slot.side < 0 ? top + 36 : ay, stemBot = it.pl.slot.side < 0 ? ay : top;
+        c.globalAlpha = (it.dim ? 0.22 : 1) * 0.55; c.fillStyle = col; c.fillRect(x - 0.5, stemTop, 1, stemBot - stemTop);
+        c.globalAlpha = it.dim ? 0.22 : 1;
+        if (!it.nm) {
+          c.font = FONT_NAME; it.nm = fit(it.pl.nm, lw - 44);
+          c.font = FONT_DATE; it.dt = fit(it.pl.dt, lw - 44);
+          c.font = FONT_NAME; const w1 = c.measureText(it.nm).width;
+          c.font = FONT_DATE; const w2 = c.measureText(it.dt).width;
+          it.boxW = Math.min(lw, Math.max(w1, w2) + 46);
+        }
+        const lx = x - 14;
+        roundRect(lx, top, it.boxW, 36, 18);
+        c.fillStyle = C.surface; c.fill();
+        c.lineWidth = it.type === "council" || it.steps ? 1.5 : 1;
+        c.strokeStyle = it.type === "council" || it.steps ? C.gold : col; c.stroke();
+        if (it.hit) { c.save(); c.globalAlpha *= 0.55; c.lineWidth = 3; c.strokeStyle = C.gold; roundRect(lx - 2, top - 2, it.boxW + 4, 40, 20); c.stroke(); c.restore(); }
+        c.fillStyle = col; c.beginPath(); c.arc(x, top + 18, 13, 0, 7); c.fill();
+        c.fillStyle = C.surface; c.beginPath(); c.arc(x, top + 18, 3.2, 0, 7); c.fill();
+        c.fillStyle = C.ink; c.font = FONT_NAME; c.fillText(it.nm, x + 21, top + 16.5);
+        c.fillStyle = C.soft; c.font = FONT_DATE; c.fillText(it.dt, x + 21, top + 30);
+        if (it.steps) {
+          const t = it.steps.join(" · ");
+          c.font = '600 10.5px "Cinzel", Georgia, serif';
+          const pw = Math.max(18, c.measureText(t).width + 10);
+          c.fillStyle = C.gold; roundRect(lx - 6, top - 9, pw, 18, 9); c.fill();
+          c.fillStyle = C.surface; c.fillText(t, lx - 6 + (pw - c.measureText(t).width) / 2, top + 3.5);
+        }
+      }
+      const r = it.type === "council" ? 7.5 : 5.5;
+      c.fillStyle = col; c.beginPath(); c.arc(x, ay, r, 0, 7); c.fill();
+      c.lineWidth = 2; c.strokeStyle = C.surface; c.stroke();
+      if (it.type === "council") { c.lineWidth = 1.5; c.strokeStyle = C.gold; c.beginPath(); c.arc(x, ay, r + 1.5, 0, 7); c.stroke(); }
+    }
+    c.globalAlpha = 1;
   }
 
   function hMarkCurrent() {
@@ -742,89 +934,210 @@
     if (target) hv.track.querySelectorAll(`[data-hv="${CSS.escape(target)}"]`).forEach((el) => el.classList.add("current"));
   }
 
-  // zoom keeping one year fixed under a screen position
-  let raf = 0;
-  function setZoom(z, anchorYear, anchorClientX) {
-    z = Math.max(1, Math.min(MAX_ZOOM, z));
-    const r = hv.vp.getBoundingClientRect();
-    const cx = anchorClientX == null ? r.left + r.width / 2 : anchorClientX;
-    const ay = anchorYear == null ? yearAtClient(cx) : anchorYear;
-    hv.zoom = z;
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => {
-      hRender();
-      hv.vp.scrollLeft = xOf(ay) - (cx - r.left);
-    });
+  // ---- redraw once the gesture is over ----
+  let commitTimer = 0;
+  function scheduleCommit(ms) {
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(() => {
+      if (Math.abs(hv.z - hv.Lz) > 1e-6) hRender();
+      else { canvasOff(); paint(); }
+      hv.track.classList.remove("gesturing");
+      vpLeft = null;
+    }, ms);
   }
-  function zoomToRange(a, b) {
-    const z = SPAN / Math.max(10, (b - a) * 1.08);
-    setZoom(z, (a + b) / 2, null);
+  function startGesture() {
+    clearTimeout(commitTimer);
+    stopAnimations();
+    hideTip();
+    vpLeft = hv.vp.getBoundingClientRect().left;
+    hv.W = hv.vp.clientWidth;
+    hv.track.classList.add("gesturing");
   }
+
+  // zoom so that the year under screen position sx stays under it
+  function zoomAround(z, sx, ya) {
+    const year = ya == null ? yearAtX(sx) : ya;
+    hv.z = clampZ(z);
+    hv.ox = clampOx(hv.z, sx - (year - Y0) * ppyAt(hv.z));
+    applyTransform();
+  }
+  function panBy(dx) {
+    hv.ox = clampOx(hv.z, hv.ox + dx);
+    applyTransform();
+  }
+
+  // ---- smooth animations (buttons, jumps, study-path steps) ----
+  let animRaf = 0, wheelRaf = 0, inertiaRaf = 0;
+  function stopAnimations() {
+    cancelAnimationFrame(animRaf); cancelAnimationFrame(wheelRaf); cancelAnimationFrame(inertiaRaf);
+    wheel.active = false;
+  }
+  function animateTo(z1, centerYear, ms) {
+    startGesture();
+    z1 = clampZ(z1);
+    const W = vpW();
+    const zA = hv.z, yA = yearAtX(W / 2), yB = centerYear == null ? yA : centerYear;
+    const dur = reduce ? 0 : (ms || 320);
+    const t0 = performance.now();
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (now) => {
+      const t = dur ? Math.min(1, (now - t0) / dur) : 1, e = ease(t);
+      const z = Math.exp(Math.log(zA) + (Math.log(z1) - Math.log(zA)) * e);
+      zoomAround(z, W / 2, yA + (yB - yA) * e);
+      if (t < 1) animRaf = requestAnimationFrame(step);
+      else scheduleCommit(0);
+    };
+    animRaf = requestAnimationFrame(step);
+  }
+  function zoomToRange(a, b) { animateTo(SPAN / Math.max(10, (b - a) * 1.08), (a + b) / 2); }
   function hFocus(id, minZoom) {
     const e = byId.get(id);
-    if (!e) return;
-    setZoom(Math.max(hv.zoom, minZoom || 1), e.year, null);
+    if (e) animateTo(Math.max(hv.z, minZoom || 1), e.year, 450);
   }
 
-  $("#hv-in").addEventListener("click", () => setZoom(hv.zoom * 1.8));
-  $("#hv-out").addEventListener("click", () => setZoom(hv.zoom / 1.8));
-  $("#hv-fit").addEventListener("click", () => setZoom(1, (Y0 + Y1) / 2));
+  $("#hv-in").addEventListener("click", () => animateTo(hv.z * 2));
+  $("#hv-out").addEventListener("click", () => animateTo(hv.z / 2));
+  $("#hv-fit").addEventListener("click", () => animateTo(1, (Y0 + Y1) / 2));
 
-  // mouse wheel: zoom (vertical wheel) or pan (sideways wheel / trackpad)
+  // ---- mouse wheel / trackpad: zoom around the cursor, eased; sideways = pan ----
+  const wheel = { active: false, target: 1, sx: 0, year: 0 };
   hv.vp.addEventListener("wheel", (ev) => {
-    if (Math.abs(ev.deltaY) <= Math.abs(ev.deltaX) && !ev.ctrlKey) return;
-    ev.preventDefault();
-    hideTip();
     const unit = ev.deltaMode === 1 ? 33 : ev.deltaMode === 2 ? 400 : 1;
-    setZoom(hv.zoom * Math.exp(-ev.deltaY * unit * (ev.ctrlKey ? 0.01 : 0.0018)), null, ev.clientX);
+    const dx = ev.deltaX * unit, dy = ev.deltaY * unit;
+    const sideways = !ev.ctrlKey && (Math.abs(dx) > Math.abs(dy) || ev.shiftKey);
+    ev.preventDefault();               // keeps the page (and browser zoom) out of it
+    if (sideways) {
+      if (!wheel.active) startGesture();
+      panBy(-(Math.abs(dx) > Math.abs(dy) ? dx : dy));
+      scheduleCommit(150);
+      return;
+    }
+    const sx = localX(ev.clientX);
+    if (!wheel.active) {
+      startGesture();
+      wheel.active = true;
+      wheel.target = hv.z;
+    }
+    wheel.sx = sx;
+    wheel.year = yearAtX(sx);
+    wheel.target = clampZ(wheel.target * Math.exp(-dy * (ev.ctrlKey ? 0.01 : 0.0022)));
+    cancelAnimationFrame(wheelRaf);
+    const step = () => {
+      const lz = Math.log(hv.z), lt = Math.log(wheel.target);
+      const next = Math.abs(lt - lz) < 0.002 ? wheel.target : Math.exp(lz + (lt - lz) * (reduce ? 1 : 0.3));
+      zoomAround(next, wheel.sx, wheel.year);
+      if (next !== wheel.target) wheelRaf = requestAnimationFrame(step);
+      else { wheel.active = false; scheduleCommit(140); }
+    };
+    wheelRaf = requestAnimationFrame(step);
   }, { passive: false });
 
-  // drag to pan with a mouse (touch uses native swiping)
-  let drag = null;
+  // ---- touch and mouse: drag/swipe to pan, two fingers to pinch-zoom ----
+  // The timeline handles sideways moves and pinches itself (CSS touch-action:
+  // pan-y), so the browser only scrolls the page up and down here and never
+  // zooms the page inside the timeline.
+  const ptrs = new Map();
+  let g = null;                 // current gesture
+  let lastMoves = [];           // for the gentle glide after a swipe
+  function gestureBaseline() {
+    const p = [...ptrs.values()];
+    if (p.length >= 2) {
+      const mid = (p[0].x + p[1].x) / 2;
+      g = { kind: "pinch", d: Math.max(20, Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y)), z: hv.z, year: yearAtX(localX(mid)) };
+    } else if (p.length === 1) {
+      g = { kind: "pan", x: p[0].x, ox: hv.ox, started: g ? g.started : false };
+    } else g = null;
+  }
   hv.vp.addEventListener("pointerdown", (ev) => {
-    if (ev.pointerType !== "mouse" || ev.button !== 0) return;
-    drag = { x: ev.clientX, sl: hv.vp.scrollLeft };
-    hv.dragged = false;
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    stopAnimations();
+    ptrs.set(ev.pointerId, { x: ev.clientX, y: ev.clientY, type: ev.pointerType });
+    if (ptrs.size === 1) { hv.dragged = false; lastMoves = []; }
+    gestureBaseline();
+    if (ptrs.size === 2) { startGesture(); hv.dragged = true; }
   });
-  window.addEventListener("pointermove", (ev) => {
-    if (!drag) return;
-    const dx = ev.clientX - drag.x;
-    if (Math.abs(dx) > 4) { hv.dragged = true; hv.vp.classList.add("grabbing"); hideTip(); }
-    if (hv.dragged) hv.vp.scrollLeft = drag.sl - dx;
+  hv.vp.addEventListener("pointermove", (ev) => {
+    const p = ptrs.get(ev.pointerId);
+    if (!p || !g) return;
+    p.x = ev.clientX; p.y = ev.clientY;
+    if (g.kind === "pinch" && ptrs.size >= 2) {
+      const q2 = [...ptrs.values()];
+      const d = Math.max(20, Math.hypot(q2[0].x - q2[1].x, q2[0].y - q2[1].y));
+      const mid = (q2[0].x + q2[1].x) / 2;
+      zoomAround(g.z * d / g.d, localX(mid), g.year);   // follows the fingers, pans with them too
+      return;
+    }
+    if (g.kind === "pan") {
+      const dx = ev.clientX - g.x;
+      if (!g.started && Math.abs(dx) > 5) {
+        g.started = true; hv.dragged = true; startGesture();
+        hv.vp.classList.add("grabbing");
+        try { hv.vp.setPointerCapture(ev.pointerId); } catch (_) { /* ignore */ }
+      }
+      if (g.started) {
+        hv.ox = clampOx(hv.z, g.ox + dx);
+        applyTransform();
+        const now = performance.now();
+        lastMoves.push({ t: now, x: ev.clientX });
+        while (lastMoves.length > 2 && now - lastMoves[0].t > 100) lastMoves.shift();
+      }
+    }
   });
-  window.addEventListener("pointerup", () => { drag = null; hv.vp.classList.remove("grabbing"); });
+  function endPointer(ev, cancelled) {
+    if (!ptrs.has(ev.pointerId)) return;
+    ptrs.delete(ev.pointerId);
+    const wasPinch = g && g.kind === "pinch";
+    if (ptrs.size > 0) { gestureBaseline(); if (g && g.kind === "pan") g.started = true; return; }
+    const wasPan = g && g.kind === "pan" && g.started;
+    g = null;
+    hv.vp.classList.remove("grabbing");
+    // a gentle glide after a quick swipe, like a map
+    if (wasPan && !cancelled && !reduce && lastMoves.length >= 2) {
+      const a = lastMoves[0], b = lastMoves[lastMoves.length - 1];
+      let v = (b.x - a.x) / Math.max(16, b.t - a.t);          // px per ms
+      if (Math.abs(v) > 0.25 && performance.now() - b.t < 80) {
+        let tPrev = performance.now();
+        const glide = (now) => {
+          const dt = now - tPrev; tPrev = now;
+          const before = hv.ox;
+          panBy(v * dt);
+          v *= Math.pow(0.94, dt / 16);
+          if (Math.abs(v) > 0.02 && hv.ox !== before) inertiaRaf = requestAnimationFrame(glide);
+          else scheduleCommit(0);
+        };
+        inertiaRaf = requestAnimationFrame(glide);
+        return;
+      }
+    }
+    if (wasPan || wasPinch) scheduleCommit(wasPinch ? 0 : 60);
+  }
+  hv.vp.addEventListener("pointerup", (ev) => endPointer(ev, false));
+  hv.vp.addEventListener("pointercancel", (ev) => endPointer(ev, true));
+  hv.vp.addEventListener("lostpointercapture", (ev) => { if (ptrs.has(ev.pointerId) && ev.pointerType === "mouse") endPointer(ev, false); });
+  // Safari (iPhone) has its own pinch events: keep them from zooming the page here
+  ["gesturestart", "gesturechange"].forEach((t) => hv.vp.addEventListener(t, (ev) => ev.preventDefault(), { passive: false }));
   hv.vp.addEventListener("click", (ev) => {
     if (hv.dragged) { ev.stopPropagation(); ev.preventDefault(); hv.dragged = false; }
   }, true);
 
-  // pinch to zoom on phones and tablets
-  let pinch = null;
-  const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-  hv.vp.addEventListener("touchstart", (ev) => {
-    if (ev.touches.length === 2) {
-      const mid = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
-      pinch = { d: dist(ev.touches), z: hv.zoom, year: yearAtClient(mid), mid };
-      hideTip();
-    }
-  }, { passive: true });
-  hv.vp.addEventListener("touchmove", (ev) => {
-    if (!pinch || ev.touches.length !== 2) return;
-    ev.preventDefault();
-    const mid = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
-    setZoom(pinch.z * dist(ev.touches) / pinch.d, pinch.year, mid);
-  }, { passive: false });
-  hv.vp.addEventListener("touchend", (ev) => { if (ev.touches.length < 2) pinch = null; });
-
-  // keyboard: + and - zoom while the timeline has focus
+  // ---- keyboard: + and - zoom, arrows move ----
   hv.vp.addEventListener("keydown", (ev) => {
-    if (ev.key === "+" || ev.key === "=") { ev.preventDefault(); setZoom(hv.zoom * 1.5); }
-    else if (ev.key === "-" || ev.key === "_") { ev.preventDefault(); setZoom(hv.zoom / 1.5); }
+    const k = ev.key;
+    if (k === "+" || k === "=") { ev.preventDefault(); animateTo(hv.z * 1.6); }
+    else if (k === "-" || k === "_") { ev.preventDefault(); animateTo(hv.z / 1.6); }
+    else if (k === "ArrowLeft" || k === "ArrowRight") {
+      ev.preventDefault();
+      const W = vpW();
+      animateTo(hv.z, yearAtX(W / 2 + (k === "ArrowLeft" ? -1 : 1) * W * 0.3), 220);
+    }
+    else if (k === "Home") { ev.preventDefault(); animateTo(hv.z, Y0, 300); }
+    else if (k === "End") { ev.preventDefault(); animateTo(hv.z, Y1, 300); }
   });
 
   // hover preview
   function hideTip() { hv.tip.hidden = true; }
   hv.track.addEventListener("pointerover", (ev) => {
-    if (ev.pointerType === "touch" || drag) return;
+    if (ev.pointerType === "touch" || g || hv.track.classList.contains("gesturing")) return;
     const m = ev.target.closest("[data-hv]");
     if (!m) return;
     const e = byId.get(m.dataset.hv);
@@ -846,7 +1159,6 @@
     const m = ev.target.closest("[data-hv]");
     if (m && !m.contains(ev.relatedTarget)) hideTip();
   });
-  hv.vp.addEventListener("scroll", hideTip, { passive: true });
 
   // keep the controls just under the sticky toolbar so the whole line is on screen
   function bringHviewIntoPlace(force) {
@@ -872,9 +1184,10 @@
     document.body.classList.toggle("hview-on", v === "h");
     if (v === "h") {
       sizeViewport();
-      hv.zoom = 1;
+      hv.pad = padFor(vpW());
+      hv.z = 1;
+      hv.ox = hv.pad;
       hRender();
-      hv.vp.scrollLeft = 0;
       if (!(opts && opts.stay)) bringHviewIntoPlace(true);
     } else {
       render();
@@ -900,10 +1213,12 @@
     if (view !== "h") return;
     clearTimeout(rt);
     rt = setTimeout(() => {
-      const r = hv.vp.getBoundingClientRect();
-      const mid = yearAtClient(r.left + r.width / 2);
+      const mid = yearAtX(vpW() / 2);       // keep the same year in the middle
       sizeViewport();
-      setZoom(hv.zoom, mid, null);
+      hv.pad = padFor(vpW());
+      hv.z = clampZ(hv.z);
+      hv.ox = vpW() / 2 - (mid - Y0) * ppyAt(hv.z);
+      hRender();
     }, 150);
   });
 

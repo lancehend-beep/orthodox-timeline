@@ -811,3 +811,28 @@ footer p { max-width: 70ch; margin: 6px auto; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .path-mode .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+/* =====================================================================
+   SMOOTH ZOOM & PAN (map-style) for the Full Timeline View
+   Swiping moves the drawn timeline with one GPU transform. Zooming stretches
+   the era bands and line with that transform while a canvas redraws markers
+   and labels at real size; labels are re-stacked when the gesture ends.
+   ===================================================================== */
+.hv-viewport {
+  overflow: hidden;
+  touch-action: pan-y;              /* sideways moves and pinches belong to the timeline; up/down still scrolls the page */
+  overscroll-behavior: auto;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+.hv-track { position: absolute; top: 0; left: 0; min-width: 0; transform-origin: 0 0; will-change: transform; }
+.hv-track.gesturing { pointer-events: none; }
+.hv-track.gesturing * { transition: none !important; }
+
+.hv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; z-index: 6; }
+/* while zooming, the canvas shows markers and labels; the real ones return when the gesture ends */
+.hv-track.zooming > :not(.hv-era):not(.hv-axis), .hv-track.zooming .hv-era-label { visibility: hidden; }
+
+/* end labels sit inside the screen edge (matters on narrow phones) */
+.hv-end.first span { transform: translateX(-14px); text-align: left; }
+.hv-end.last span { transform: translateX(calc(-100% + 14px)); text-align: right; }
