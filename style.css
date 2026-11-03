@@ -795,3 +795,19 @@ footer p { max-width: 70ch; margin: 6px auto; }
 }
 .hv-era-label.vertical { left: 50%; right: auto; transform: translateX(-50%); top: 10px; writing-mode: vertical-rl; }
 .hv-era-label.vertical b { font-size: 0.68rem; }
+
+/* gentle message (e.g. "You're offline") */
+.toast {
+  position: fixed; z-index: 40; left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 12px); opacity: 0;
+  width: min(440px, calc(100vw - 32px));
+  padding: 14px 18px; border-radius: var(--radius);
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--gold); box-shadow: 0 16px 34px -14px var(--shadow);
+  font-size: 0.98rem; line-height: 1.45; text-align: center;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.path-mode .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }

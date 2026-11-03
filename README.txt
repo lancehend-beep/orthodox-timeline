@@ -13,9 +13,12 @@ WHAT IS IN THIS FOLDER
                search, cards, study paths).
   data.js      The timeline content: Bible books, Fathers, councils, synods, events.
   paths.js     The Study Paths (guided walks through one topic).
+  manifest.webmanifest   App name, colors and icons for installing on a phone.
+  sw.js        The "service worker": lets the installed app work offline.
+  icons/       The app icon in every size phones need.
   README.txt   This file.
 
-Keep all six files together in the same folder.
+Keep all these files and the icons folder together in the same folder.
 
 
 HOW TO OPEN IT
@@ -119,6 +122,22 @@ The Full Timeline View draws all of history on one line, to scale:
   - Hover over a marker for a quick preview; click it for the full card.
   - Each card has "Jump to this in Vertical View".
 The page remembers which view you used last (in your browser only).
+
+
+THE PHONE APP (PWA)
+-------------------
+From the live web address, the site can be installed on a phone's home
+screen and used like an app, even without internet (reading links to
+other websites still need internet; the app says so gently if you are
+offline).
+
+Updates: whenever the app is opened WITH internet, it fetches the newest
+files automatically, so your changes reach installed copies by themselves.
+You only need to touch sw.js if you add a brand-new file the app needs:
+add its name to APP_FILES there and change VERSION (e.g. "v1" to "v2").
+
+Offline support only works on the real web address (https://...), not
+when you double-click index.html on a computer. That is normal.
 
 
 A NOTE ON LINKS

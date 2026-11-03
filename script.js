@@ -919,4 +919,39 @@
   }
   window.addEventListener("hashchange", fromHash);
   fromHash();
+
+  // ---------- installable app: offline support ----------
+  // Reading links open other websites, which need internet. If the phone is
+  // offline, show a gentle note instead of a browser error page.
+  let toastTimer = 0;
+  function showToast(msg) {
+    const t = $("#toast");
+    t.textContent = msg;
+    t.hidden = false;
+    requestAnimationFrame(() => t.classList.add("show"));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      t.classList.remove("show");
+      setTimeout(() => { t.hidden = true; }, 300);
+    }, 6000);
+  }
+  document.addEventListener("click", (ev) => {
+    const a = ev.target.closest && ev.target.closest("a[href]");
+    if (!a || navigator.onLine !== false) return;
+    let url;
+    try { url = new URL(a.href, location.href); } catch (_) { return; }
+    if (url.origin === location.origin || !/^https?:$/.test(url.protocol)) return;
+    ev.preventDefault();
+    showToast("You're offline. Reading links open other websites, so they need an internet connection. Everything else in the app works offline.");
+  }, true);
+
+  // Register the service worker (only on a real web address, not when the
+  // file is opened straight from the computer).
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js")
+        .then((reg) => reg.update())
+        .catch(() => { /* not available here (for example in a preview): the site still works */ });
+    });
+  }
 })();
