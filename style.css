@@ -834,3 +834,8 @@ footer p { max-width: 70ch; margin: 6px auto; }
 /* end labels sit inside the screen edge (matters on narrow phones) */
 .hv-end.first span { transform: translateX(-14px); text-align: left; }
 .hv-end.last span { transform: translateX(calc(-100% + 14px)); text-align: right; }
+
+/* short Scripture quote on a card (one or two verses, with reference and link) */
+.verse-quote { margin: 4px 0 18px; padding: 12px 16px; border-left: 3px solid var(--gold); background: var(--bg); border-radius: 0 var(--radius) var(--radius) 0; }
+.verse-quote p { margin: 0 0 6px; font-style: italic; font-size: 1.06rem; }
+.verse-quote footer { font-size: 0.86rem; color: var(--ink-soft); border: 0; padding: 0; text-align: left; }

@@ -51,6 +51,11 @@
    For a Bible book,  text: LXX("GEN")  (Old Testament) or  text: KJV("JHN")
    (New Testament) links the book. Without it, the book shows "link needed".
 
+   SHORT SCRIPTURE QUOTES: any entry (or study-path explainer step) can have
+     quote: { text: "...", ref: "John 1:14 (OSB)", url: "https://..." }
+   Use  python3 tools/osb_lookup.py --site "John 1:14"  to make one. The site
+   shows at most two verses, always with the reference and the link.
+
    A note on links: they were written from known, stable link patterns
    but could not be click-tested when the site was built. If one is
    broken, just fix or remove it here.

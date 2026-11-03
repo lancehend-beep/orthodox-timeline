@@ -140,6 +140,28 @@ Offline support only works on the real web address (https://...), not
 when you double-click index.html on a computer. That is normal.
 
 
+ORTHODOX STUDY BIBLE TOOLS (PRIVATE, ON YOUR COMPUTER)
+-----------------------------------------------------
+The tools/ folder can build a private verse index from your own
+Orthodox Study Bible EPUB. The EPUB and the index live in the source/
+folder, which is never uploaded to GitHub or the public site.
+
+1. Put your EPUB at  source/osb.epub
+2. Build the index (once):      python3 tools/osb_index.py
+3. Look up any passage:         python3 tools/osb_lookup.py "John 1:1-5"
+4. Get a short quote for the site (one or two verses at most):
+                                python3 tools/osb_lookup.py --site "John 1:14"
+   Paste the "quote: {...}" line it prints into an entry in data.js.
+
+The public site only ever shows one or two verses, with the reference
+and a link to the full passage on a free online Bible. Both the --site
+helper and the page itself refuse anything longer.
+
+If the index finds too few verses, run  python3 tools/osb_index.py --inspect
+and share what it prints. It shows only the EPUB's layout, with the words
+replaced by "…", so no Bible text is shared.
+
+
 A NOTE ON LINKS
 ---------------
 Every reading link was opened and checked by hand before it was added,

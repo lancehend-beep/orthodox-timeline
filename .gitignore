@@ -2,3 +2,10 @@
 *.zip
 .DS_Store
 Thumbs.db
+
+# Private study materials (e.g. the Orthodox Study Bible EPUB) and anything
+# extracted from them. Never commit or publish these.
+/source/
+
+# Python cache files
+__pycache__/

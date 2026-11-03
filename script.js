@@ -265,6 +265,7 @@
     if (e.type === "father") {
       h += `<dl class="facts"><dt>Lived</dt><dd>${esc(e.life)}</dd><dt>Known as</dt><dd>${esc(e.title)}</dd>${e.feast ? `<dt>Feast</dt><dd>${esc(e.feast)}</dd>` : ""}</dl>`;
       h += `<h3>His life</h3><p>${esc(e.bio)}</p>`;
+      h += quoteHTML(e.quote);
       if (e.works && e.works.length) h += `<h3>Writings, in the order written</h3>${worksHTML(e.works)}`;
       if (e.ow) h += `<h3>Learn more</h3>${linksList([{ label: "Learn more on OrthodoxWiki", url: OWA(e.ow) }])}`;
       return h;
@@ -272,6 +273,7 @@
     if (e.type === "bible") {
       h += `<dl class="facts"><dt>Part</dt><dd>${esc(e.testament)} · ${esc(e.section)}</dd><dt>Written</dt><dd>${esc(e.date)}</dd></dl>`;
       h += `<p>${esc(e.summary)}</p>`;
+      h += quoteHTML(e.quote);
       const book = e.name.replace(/\s*\(.*\)$/, "");
       h += `<h3>Read it</h3>${linksList([
         e.text ? { label: `Read ${book} (${sourceName(e.text)})`, url: e.text } : { label: `Read ${book}`, needed: true },
@@ -284,11 +286,32 @@
     }
     h += `<dl class="facts"><dt>When</dt><dd>${esc(e.date)}</dd>${e.location ? `<dt>Where</dt><dd>${esc(e.location)}</dd>` : ""}</dl>`;
     h += `<p>${esc(e.summary)}</p>`;
+    h += quoteHTML(e.quote);
     if (e.decided) h += `<h3>What it decided</h3><ul class="decided">${e.decided.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>`;
     if (e.matters) h += `<h3>Why it matters</h3><p>${esc(e.matters)}</p>`;
     h += viewsHTML(e.views);
     if (e.links && e.links.length) h += `<h3>${e.type === "event" ? "Read more" : "Read the canons and decrees"}</h3>${linksList(e.links)}`;
     return h;
+  }
+
+  // A short Scripture quote on a card, e.g. from the Orthodox Study Bible.
+  // Only one or two verses are ever shown, always with the reference and a
+  // link to the full passage on a free online Bible.
+  const MAX_QUOTE_CHARS = 450;
+  function quoteVerses(ref) {
+    const m = String(ref).match(/(\d+):(\d+)(?:\s*[–-]\s*(?:(\d+):)?(\d+))?/);
+    if (!m) return 99;
+    if (m[3] && m[3] !== m[1]) return 99;            // crosses chapters: too long
+    return m[4] ? Number(m[4]) - Number(m[2]) + 1 : 1;
+  }
+  function quoteHTML(q) {
+    if (!q) return "";
+    if (!q.text || !q.ref || !q.url || q.text.length > MAX_QUOTE_CHARS || quoteVerses(q.ref) > 2) {
+      console.warn("Quote not shown (the site allows one or two verses, with a reference and a link):", q.ref);
+      return "";
+    }
+    return `<blockquote class="verse-quote"><p>“${esc(q.text)}”</p>
+      <footer>${esc(q.ref)} · ${linkHTML("Read the full passage", q.url)}</footer></blockquote>`;
   }
 
   function relatedHTML(ids) {
@@ -304,6 +327,7 @@
     let h = `<span class="kind explainer"><span class="badge">${icon("explainer")}</span>Explainer</span>
       <h2 class="entry-title" id="panel-title">${esc(s.title)}</h2>`;
     h += paras.map((p) => `<p>${esc(p)}</p>`).join("");
+    h += quoteHTML(s.quote);
     h += viewsHTML(s.views, "Comparing the views");
     if (s.links && s.links.length) h += `<h3>Read more</h3>${linksList(s.links)}`;
     h += relatedHTML(s.related);
