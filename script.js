@@ -222,7 +222,7 @@
   function linkHTML(label, url, note) {
     return `<a href="${esc(url)}" target="_blank" rel="noopener">${icon("link")}${esc(label)}</a>${note ? ` <span class="small">${esc(note)}</span>` : ""}`;
   }
-  const NEEDED = `<span class="needed-tag">Orthodox link needed</span>`;
+  const NEEDED = `<span class="needed-tag">link needed</span>`;   // plain text, not a link
   function worksHTML(works, author) {
     const who = (author || "").replace(/^(St\.|Bl\.)\s*/, "").replace(/\s*\(.*\)$/, "");
     return `<ol class="works">` + works.map((w) => {
@@ -240,7 +240,7 @@
       `<div class="view orth"><h4>The Orthodox position</h4><p>${esc(v.orthodox)}</p></div></div>`;
   }
   function linksList(links) {
-    return `<ul class="links">${links.map((l) => `<li>${l.url && !l.needed ? linkHTML(l.label, l.url) : `<span class="needed-label">${icon("link")}${esc(l.label)}</span> ${NEEDED}`}</li>`).join("")}</ul>`;
+    return `<ul class="links">${links.map((l) => `<li>${l.url && !l.needed ? linkHTML(l.label, l.url) : `<span class="needed-label">${esc(l.label)}</span> ${NEEDED}`}</li>`).join("")}</ul>`;
   }
 
   function detailHTML(e, headingTag) {

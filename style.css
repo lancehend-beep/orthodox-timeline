@@ -641,10 +641,8 @@ footer p { max-width: 70ch; margin: 6px auto; }
 }
 
 /* Orthodox-link-needed markers */
-.needed-tag {
-  display: inline-block; font-family: var(--font-display); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--red); border: 1px dashed var(--red); border-radius: 999px; padding: 1px 8px; vertical-align: 1px;
-}
+.needed-tag { color: var(--ink-soft); font-size: 0.86rem; font-style: italic; }
+.needed-tag::before { content: "("; } .needed-tag::after { content: ")"; }
 .needed-label { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-soft); }
 .backup { font-size: 0.82rem; color: var(--ink-soft); margin-left: 4px; }
 
