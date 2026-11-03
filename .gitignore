@@ -1,0 +1,4 @@
+# The downloadable zip is only for sharing; GitHub holds the files themselves
+*.zip
+.DS_Store
+Thumbs.db
