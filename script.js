@@ -223,12 +223,24 @@
     return `<a href="${esc(url)}" target="_blank" rel="noopener">${icon("link")}${esc(label)}</a>${note ? ` <span class="small">${esc(note)}</span>` : ""}`;
   }
   const NEEDED = `<span class="needed-tag">link needed</span>`;   // plain text, not a link
-  function worksHTML(works, author) {
-    const who = (author || "").replace(/^(St\.|Bl\.)\s*/, "").replace(/\s*\(.*\)$/, "");
+  // name the website a link goes to, so readers know where they are going
+  function sourceName(url) {
+    const u = String(url);
+    if (u.includes("eng-Brenton")) return "Septuagint, Brenton translation";
+    if (u.includes("eng-kjv")) return "King James Version";
+    if (u.includes("newadvent.org")) return "New Advent";
+    if (u.includes("ccel.org")) return "CCEL";
+    if (u.includes("oca.org")) return "Orthodox Church in America";
+    if (u.includes("orthodoxinfo.com")) return "Orthodox Christian Information Center";
+    if (u.includes("orthodoxwiki.org")) return "OrthodoxWiki";
+    return "";
+  }
+  function worksHTML(works) {
     return `<ol class="works">` + works.map((w) => {
       let l;
-      if (w.link) l = linkHTML("Read online (Orthodox source)", w.link);
-      else l = `${NEEDED} <a class="backup" href="${esc(FIND(w.find || (who + " " + w.title)))}" target="_blank" rel="noopener">general library search</a>`;
+      if (w.link) l = linkHTML(`Read online (${sourceName(w.link)})`, w.link);
+      else if (w.about) l = `${linkHTML(`About this work (${sourceName(w.about)})`, w.about)} <span class="needed-tag">full text: link needed</span>`;
+      else l = NEEDED;
       return `<li><span class="w-title">${esc(w.title)}</span><span class="w-date">${esc(w.date)}</span><span class="w-link">${l}</span></li>`;
     }).join("") + `</ol>`;
   }
@@ -253,8 +265,8 @@
     if (e.type === "father") {
       h += `<dl class="facts"><dt>Lived</dt><dd>${esc(e.life)}</dd><dt>Known as</dt><dd>${esc(e.title)}</dd>${e.feast ? `<dt>Feast</dt><dd>${esc(e.feast)}</dd>` : ""}</dl>`;
       h += `<h3>His life</h3><p>${esc(e.bio)}</p>`;
-      if (e.works && e.works.length) h += `<h3>Writings, in the order written</h3>${worksHTML(e.works, e.name)}`;
-      h += `<h3>Learn more</h3>${linksList([{ label: "Search OrthodoxWiki", url: OW(e.name.replace(/^(St\.|Bl\.)\s*/, "").replace(/\s*\(.*\)$/, "")) }])}`;
+      if (e.works && e.works.length) h += `<h3>Writings, in the order written</h3>${worksHTML(e.works)}`;
+      if (e.ow) h += `<h3>Learn more</h3>${linksList([{ label: "Learn more on OrthodoxWiki", url: OWA(e.ow) }])}`;
       return h;
     }
     if (e.type === "bible") {
@@ -262,10 +274,12 @@
       h += `<p>${esc(e.summary)}</p>`;
       const book = e.name.replace(/\s*\(.*\)$/, "");
       h += `<h3>Read it</h3>${linksList([
-        e.text ? { label: `Read ${book} (Orthodox source)`, url: e.text } : { label: `Read ${book}`, needed: true },
-        { label: `Learn about ${book} (OrthodoxWiki)`, url: OW(book) }
+        e.text ? { label: `Read ${book} (${sourceName(e.text)})`, url: e.text } : { label: `Read ${book}`, needed: true },
+        ...(e.ow ? [{ label: `Learn about ${book} (OrthodoxWiki)`, url: OWA(e.ow) }] : [])
       ])}`;
-      h += `<p class="small" style="margin-top:12px">The Orthodox Church reads the Old Testament from the Greek Septuagint, so wording and Psalm numbers can differ from other Bibles.</p>`;
+      h += e.testament === "Old Testament"
+        ? `<p class="small" style="margin-top:12px">Brenton's translation of the Septuagint, the Greek Old Testament the Orthodox Church reads. Psalm numbers follow the Greek, so they can differ by one from Western Bibles.</p>`
+        : `<p class="small" style="margin-top:12px">The King James Version was translated from the traditional Byzantine Greek text, close to the text the Orthodox Church reads. (The Orthodox Study Bible uses a revision of it.)</p>`;
       return h;
     }
     h += `<dl class="facts"><dt>When</dt><dd>${esc(e.date)}</dd>${e.location ? `<dt>Where</dt><dd>${esc(e.location)}</dd>` : ""}</dl>`;

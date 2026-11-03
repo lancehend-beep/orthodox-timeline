@@ -31,7 +31,7 @@
              views: { otherLabel: "Protestant view", other: "...",
                       orthodox: "..." },                 (optional)
              related: ["damascene", "nicaea2"],          (optional)
-             links: [{ label: "Read John 1", needed: true }] },  (optional)
+             links: [{ label: "Read John 1", url: KJV("JHN01") }] },  (optional)
 
       To compare several traditions in one explainer, use
              views: { others: [ { label: "Lutheran", text: "..." },
@@ -42,9 +42,9 @@
       not exist, the page shows a short notice in that step instead of
       breaking, so typos are easy to find.
 
-   You can use the same link helpers as in data.js: OW() and FIND().
-   For a link with no Orthodox source yet, write  { label: "...", needed: true }
-   and the page will show "Orthodox link needed".
+   You can use the same link helpers as in data.js: OWA(), LXX(), KJV(), NA() and CCEL().
+   For a link with no reliable free source yet, write  { label: "...", needed: true }
+   and the page will show "link needed" as plain text.
    ===================================================================== */
 
 const PATH_GROUPS = [
@@ -117,7 +117,7 @@ const PATHS = [
           "\"In one Holy, Catholic and Apostolic Church. I confess one baptism for the remission of sins. I look for the resurrection of the dead, and the life of the age to come. Amen.\""
         ],
         related: ["nicaea1", "constantinople1", "ephesus"],
-        links: [{ label: "Read the Creed of 381", needed: true }] },
+        links: [{ label: "Read the Creed of 381 (OrthodoxWiki)", url: OWA("Nicene_Creed") }] },
       { entry: "filioque", why: "Centuries later the West added \"and the Son\" to the line about the Holy Spirit. For the Orthodox this changes the Creed the whole Church agreed on, and the teaching on the Trinity it protects." }
     ] },
 
@@ -206,7 +206,7 @@ const PATHS = [
           "\"Hesychasm\" comes from the Greek hesychia, \"stillness.\" Hesychasts are those who seek inner stillness through this prayer. The Fathers warn that it should be practiced with guidance from a spiritual father or mother, within the life of the Church."
         ],
         related: ["desert-sayings", "climacus", "philokalia"],
-        links: [{ label: "Read Luke 18", needed: true }] },
+        links: [{ label: "Read Luke 18 (King James Version)", url: KJV("LUK18") }] },
       { entry: "desert-sayings", why: "The desert monks practiced short, repeated prayers like \"Lord, have mercy\" as their constant work. The Jesus Prayer grows out of their experience." },
       { entry: "climacus", why: "\"Let the remembrance of Jesus be present with each breath.\" St. John's Ladder is one of the earliest texts to describe the Jesus Prayer and stillness." },
       { entry: "symeon", why: "St. Symeon describes being flooded with divine light in prayer, and insists this is not just for saints of the past but for anyone who truly repents." },
@@ -274,7 +274,7 @@ const PATHS = [
           "That is why Orthodox Christians read Scripture with the Fathers, the councils and the services of the Church as their guides, rather than alone."
         ],
         related: ["2thessalonians", "vincent"],
-        links: [{ label: "Read 2 Thessalonians 2", needed: true }] }
+        links: [{ label: "Read 2 Thessalonians 2 (King James Version)", url: KJV("2TH02") }] }
     ] },
 
   /* -------------------------------------------------------------------
@@ -330,7 +330,7 @@ const PATHS = [
           orthodox: "The Gospels call the bread artos, the ordinary word for (leavened) bread, not azyma, unleavened bread. St. John places the Last Supper before Passover began (John 18:28; 19:14), and the Church of Jerusalem always used leavened bread. The leaven was understood as a sign of the risen, living Christ, and unleavened bread as belonging to the Old Covenant that Christ fulfilled. Today most Orthodox theologians treat this as a serious difference of practice and symbolism, not the heart of the division."
         },
         related: ["schism"],
-        links: [{ label: "Read John 18–19", needed: true }] },
+        links: [{ label: "Read John 18–19 (King James Version)", url: KJV("JHN18") }] },
       { entry: "1204", why: "The sack of Constantinople made the schism real for ordinary Orthodox people, and explains why later unions imposed from above failed." },
       { entry: "scholasticism", why: "Western theology develops its own framework, with \"created grace\" and the vision of God's essence. Here the Orthodox and Catholic understandings of grace part ways." },
       { entry: "hesychast", why: "The Orthodox answer on grace: we truly share in God's uncreated energies. Its card compares this with the Western view." },
@@ -439,7 +439,7 @@ const PATHS = [
           orthodox: "The image of God in us was darkened and wounded by the Fall, but never destroyed. Every human being, even the worst sinner, still bears God's image and the freedom to turn toward Him. St. Athanasius describes the Incarnation as the Artist coming to restore a portrait that has been damaged, not to paint a new one. Christ, the true Image of the Father (Colossians 1:15), came to restore the image and open the way to the likeness."
         },
         related: ["genesis", "irenaeus", "athanasius"],
-        links: [{ label: "Read Genesis 1", needed: true }] },
+        links: [{ label: "Read Genesis 1 (Septuagint, Brenton)", url: LXX("GEN01") }] },
       { title: "Ancestral sin or original guilt?",
         text: [
           "What did we inherit from Adam? This question, which goes back to St. Augustine in the West, is the root of many later differences."
@@ -450,7 +450,7 @@ const PATHS = [
           orthodox: "From Adam we inherit death, corruption, and a nature inclined to sin, but not Adam's personal guilt. \"The son shall not bear the guilt of the father\" (Ezekiel 18:20). We become guilty by our own sins, which all of us commit. Romans 5:12 in Greek says death spread to all \"because all sinned.\" Augustine read a Latin translation that said \"in whom [Adam] all sinned,\" and much Western theology followed that reading. Orthodox baptize infants not to remove inherited guilt, but to unite them to Christ and give them new life."
         },
         related: ["genesis", "romans", "augustine"],
-        links: [{ label: "Read Romans 5", needed: true }, { label: "Read Ezekiel 18", needed: true }] },
+        links: [{ label: "Read Romans 5 (King James Version)", url: KJV("ROM05") }, { label: "Read Ezekiel 18 (Septuagint, Brenton)", url: LXX("EZK18") }] },
       { title: "Total depravity",
         text: [
           "How badly did the Fall damage us?"
@@ -481,7 +481,7 @@ const PATHS = [
           orthodox: "God \"desires all people to be saved and to come to the knowledge of the truth\" (1 Timothy 2:4). \"Those whom He foreknew He also predestined\" (Romans 8:29): predestination follows God's foreknowledge. St. John of Damascus explains that God knows everything in advance, but does not cause everything: He foreknows our free choices without forcing them. St. John Chrysostom, preaching on Romans 9, says Pharaoh was hardened by his own choices, and that no one is lost except by refusing God's mercy. Hell was \"prepared for the devil and his angels\" (Matthew 25:41), not for human beings."
         },
         related: ["chrysostom", "damascene", "romans"],
-        links: [{ label: "Read Romans 8–9", needed: true }, { label: "St. Chrysostom's Homilies on Romans", needed: true }] },
+        links: [{ label: "Read Romans 8–9 (King James Version)", url: KJV("ROM08") }, { label: "St. Chrysostom's Homilies on Romans (New Advent)", url: NA("2102") }] },
       { entry: "anselm", why: "The Western way of explaining the Cross as satisfaction of God's justice begins here. Its card compares it with the Fathers' understanding of the Cross as victory over death." },
       { title: "For whom did Christ die?",
         text: [
@@ -518,7 +518,7 @@ const PATHS = [
           "The Fathers did not read this as making humans into rival gods. They read it as a promise of what God's grace can make of those who receive His Word."
         ],
         related: ["psalms", "john"],
-        links: [{ label: "Read Psalm 82 (Orthodox Psalm 81)", needed: true }, { label: "Read John 10", needed: true }] },
+        links: [{ label: "Read Psalm 81 (Psalm 82 in Western Bibles; Septuagint, Brenton)", url: LXX("PSA081") }, { label: "Read John 10 (King James Version)", url: KJV("JHN10") }] },
       { entry: "john", why: "Christ prays that His disciples may be one \"as You, Father, are in Me, and I in You, that they also may be in Us\" (17:21), and gives them \"the glory You have given Me\" (17:22)." },
       { entry: "2peter", why: "The key verse: we \"become partakers of the divine nature\" (1:4). This is the plainest statement of theosis in Scripture." },
       { entry: "irenaeus", why: "\"The Word of God… became what we are, so that He might bring us to be what He is.\" The earliest clear statement of the great exchange." },

@@ -69,7 +69,7 @@ and the Full Timeline View (the horizontal one). You do not need to do
 anything extra.
 
 For a work, add  link: "https://..."  only if you know an Orthodox online
-copy of it. Without a link, the card shows "Orthodox link needed".
+copy of it. Without a link, the card shows "(link needed)".
 
 If the page goes blank after an edit, a comma or quotation mark is
 probably missing. Undo your last change (Ctrl+Z / Cmd+Z), save, and try
@@ -142,17 +142,19 @@ when you double-click index.html on a computer. That is normal.
 
 A NOTE ON LINKS
 ---------------
-Reading links point only to Orthodox sources. Right now that means
-OrthodoxWiki (searches by topic) and OrthodoxInfo (the 1848 Encyclical).
-Anything without a reliable Orthodox online copy shows
-"Orthodox link needed". When you find one, add it in data.js:
+Every reading link was opened and checked by hand before it was added,
+and each one goes to the specific book, work, council or person.
+Sources, in order of preference:
+  - Orthodox sites: OrthodoxWiki, the Orthodox Church in America (oca.org),
+    and the Orthodox Christian Information Center (orthodoxinfo.com)
+  - The Bible: the Septuagint in Brenton's translation (Old Testament) and
+    the King James Version (New Testament), both on ebible.org
+  - Public-domain libraries, only when no Orthodox copy exists:
+    New Advent (Church Fathers texts), CCEL
+Anything without a reliable free copy shows "(link needed)" as plain text.
+When you find one, add it in data.js:
   - for a writing:       link: "https://..."
   - for a Bible book:    text: "https://..."
   - in a "links" list:   change  { label: "...", needed: true }
                          to      { label: "...", url: "https://..." }
-Next to "Orthodox link needed", writings also show a small "general
-library search" on archive.org as a temporary help.
-
-The links could not be click-tested when the site was built, because the
-build computer had no internet access. If you find a broken one, fix or
-remove it in data.js or paths.js.
+If you find a broken link, fix or remove it in data.js or paths.js.
